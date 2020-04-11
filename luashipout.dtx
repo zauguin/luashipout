@@ -60,10 +60,12 @@
 % \GetFileInfo{luashipout.sty}
 % \title{The luashipout package\thanks{This document
 %        corresponds to luashipout~\fileversion, dated~\filedate.}}
-% \author{Marcel Kr\"uger \\ \href{mailto:tex@2krueger.de}{tex@2krueger.de}}
+% \author{Marcel Kr\"uger \\
+%         \href{mailto:tex@2krueger.de}{tex@2krueger.de}}
 %
 % \maketitle
-% Overwrite \texttt{\string\shipout} and |\saveboxresource| with a Lua wrapper to
+% Overwrite \texttt{\string\shipout} and |\saveboxresource| with a Lua
+% wrapper to
 % add callbacks directly before and after shipout.
 %
 %TODO: Documentation
@@ -90,6 +92,7 @@ local orig_shipout = tex.shipout
 local orig_saveboxresource = tex.saveboxresource
 local setbox = tex.setbox
 local put_next = token.put_next
+local scan_keyword = token.scan_keyword
 
 local begin_group, end_group do
   local runtoks = tex.runtoks
@@ -108,28 +111,34 @@ end
 
 luatexbase.create_callback('pre_shipout_filter', 'list')
 luatexbase.create_callback('post_shipout', 'simple')
-luatexbase.create_callback('shipout', 'exclusive', function(n, kind, ...)
-  if kind == 'page' then
+luatexbase.create_callback('shipout', 'exclusive', function(n, k, ...)
+  if k == 'page' then
     begin_group()
       setbox(0, n)
       orig_shipout(0)
     end_group()
-  elseif kind == 'box' then
+  elseif k == 'box' then
     return orig_saveboxresource(n, ...)
+  else
+    error[[Unsupported shipout type]]
   end
 end)
 
 local function generic_shipout(n, ...)
   n = node.direct.is_node(n) or getclearedbox(n)
-  local filtered = luatexbase.call_callback('pre_shipout_filter', n, ...)
-  if filtered == true then
-    filtered = n
-  elseif filtered == false then
+  local new_n = luatexbase.call_callback('pre_shipout_filter', n, ...)
+  if new_n == true then
+    new_n = n
+  elseif new_n == false then
     node.flush_list(n)
     return
   end
-  local index = luatexbase.call_callback('shipout', filtered, ...)
-  luatexbase.call_callback('post_shipout', index, ...) -- index is nil in the common case of kind == 'page'
+  local index = luatexbase.call_callback('shipout', new_n, ...)
+%    \end{macrocode}
+% In the common case of |kind == 'page'|, |index| will be |nil|.
+% It is only releavant for the |saveboxresource| case.
+%    \begin{macrocode}
+  luatexbase.call_callback('post_shipout', index, ...)
   return index
 end
 
@@ -143,24 +152,27 @@ local function saveboxresource(n, attr, res, imm, t, margin)
 end
 tex.saveboxresource = saveboxresource
 
-local shipout_func = luatexbase.new_luafunction'shipout'
-local saveboxresource_func = luatexbase.new_luafunction'saveboxresource'
+local shipout_func =
+    luatexbase.new_luafunction'shipout'
+local saveboxresource_func =
+    luatexbase.new_luafunction'saveboxresource'
 
 functions[shipout_func] = function()
   return shipout(token.scan_list())
 end
 
 functions[saveboxresource_func] = function(imm)
-  local t = token.scan_keyword'type' and token.scan_int()
-  local attr = token.scan_keyword'attr' and token.scan_string()
-  local resources = token.scan_keyword'resources' and token.scan_string()
-  local margin = token.scan_keyword'margin' and token.scan_int()
+  local t = scan_keyword'type' and token.scan_int()
+  local attr = scan_keyword'attr' and token.scan_string()
+  local resources = scan_keyword'resources' and token.scan_string()
+  local margin = scan_keyword'margin' and token.scan_int()
   local box = token.scan_int()
   saveboxresource(box, attr, res, imm == "immediate", t, margin)
 end
 
 token.set_lua('shipout', shipout_func, 'global', 'protected')
-token.set_lua('saveboxresource', saveboxresource_func, 'global', 'protected')
+token.set_lua('saveboxresource', saveboxresource_func,
+              'global', 'protected')
 require'luaimmediate'(saveboxresource_func, true)
 %    \end{macrocode}
 % \iffalse
@@ -170,9 +182,11 @@ require'luaimmediate'(saveboxresource_func, true)
 %</gobble>
 % \fi
 % \subsection{\TeX\ support package}
-% Most of the time this \TeX\ helper is not needed, but sometimes it can be useful to ensure
-% |\shipout| and |\saveboxresource| are redefined early enough. Especially this has to be
-% loaded \emph{before} \texttt{atbegshi}. (Otherwise we effectivly disable \texttt{atbegshi}.
+% Most of the time this \TeX\ helper is not needed, but sometimes it
+% can be useful to ensure |\shipout| and |\saveboxresource| are
+% redefined early enough. Especially this has to be loaded
+% \emph{before} \texttt{atbegshi}. (Otherwise we effectively disable
+% \texttt{atbegshi})
 % \iffalse
 %<*package|tex-package>
 % \fi
@@ -230,8 +244,8 @@ require'luaimmediate'(saveboxresource_func, true)
 %    \begin{macrocode}
 \fi
 %    \end{macrocode}
-% Load \texttt{luaimmediate}. This woul normally be loaded by the
-% Lua code directly, but goint though \TeX\ allows it to work even
+% Load \texttt{luaimmediate}. This would normally be loaded by the
+% Lua code directly, but going though \TeX\ allows it to work even
 % if only a \texttt{sty} and no \texttt{lua} file exists. Of course,
 % the \texttt{sty} file would then have to preload the Lua module too.
 %    \begin{macrocode}
