@@ -170,7 +170,21 @@ functions[saveboxresource_func] = function(imm)
   saveboxresource(box, attr, res, imm == "immediate", t, margin)
 end
 
+if 'leader_ship' ~= token.create'shipout'.cmdname then
+  tex.error('luashipout: Loaded too late', {
+    'luashipout has been loaded after another package already redefined \\shipout.',
+    'The redefiniton of the other package will be overwritten. To fix this,',
+    'please add \\usepackage{luashipout} as early as possible.',
+  })
+end
 token.set_lua('shipout', shipout_func, 'global', 'protected')
+if 'extension' ~= token.create'saveboxresource'.cmdname then
+  tex.error('luashipout: Loaded too late', {
+    'luashipout has been loaded after another package already redefined \\saveboxresource.',
+    'The redefiniton of the other package will be overwritten. To fix this,',
+    'please add \\usepackage{luashipout} as early as possible.',
+  })
+end
 token.set_lua('saveboxresource', saveboxresource_func,
               'global', 'protected')
 require'luaimmediate'(saveboxresource_func, true)
