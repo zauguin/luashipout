@@ -180,9 +180,9 @@ end
 token.set_lua('shipout', shipout_func, 'global', 'protected')
 if 'extension' ~= token.create'saveboxresource'.cmdname then
   tex.error('luashipout: Loaded too late', {
-    'luashipout has been loaded after another package already redefined \\saveboxresource.',
-    'The redefiniton of the other package will be overwritten. To fix this,',
-    'please add \\usepackage{luashipout} as early as possible.',
+    'luashipout has been loaded after another package already redefined',
+    '\\saveboxresource. The redefiniton of the other package will be overwritten.',
+    'To fix this, please add \\usepackage{luashipout} as early as possible.',
   })
 end
 token.set_lua('saveboxresource', saveboxresource_func,
